@@ -125,6 +125,23 @@ criar um novo package chamado controller e dentro do package criar a classe ``He
     - além de add configuração de parametro de request, a gente indica qual request queremos mapear add um parametro 
     para a configuração
 
+    ````
+    
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    @RestController 
+    @RequestMapping("/hello-world")
+
+    public class HelloWordController {
+    @GetMapping 
+        public String helloWorld() {  
+            return "Hello World";
+        }
+    }
+    ````
+    
 
 - Declaramos um método público helloWorld() que vai retornar uma string
 - @GetMapping vai qual requisições estamos a esperar
@@ -165,5 +182,148 @@ application-dev.properties)
   - ``spring.profiles.active=${ACTIVE_PTOFILE:dev}`` //recuperando valor de uma variavel de ambiente
   - ele carrega por padrão o valor da variável de ambiente, e se ele não encontrar o valor dessa variavel ele usa o 
   valor de dev
+  - variaveis de ambiente podem ser configuradas em ``run/debug configurations`` 
 
--- 30:20
+
+### Gerenciamento de dependências
+
+- Criar a primeira classe Service -- new package service
+- Criar classe dentro do package HelloWorldService
+- Contém a lógica da aplicação, as regras de negócio
+  - precisa decorar a classe com @Service
+  - indica pro Spring que é uma classe service -- depois qualquer outra classe que pedir uma instância de service, o 
+  Spring já vai conseguir gerir a injeção de dependências na outra classe que tiver uma dependencia com essa classe
+  
+- Criar um método com a lógica do négocio, acessos a repost (classes que fazem conexão com banco de dados)
+- No ``controller`` vamos modificar para acessar a classe de ``service`` para que ela a lógica
+  - não usaremos mais a lógica direto no controller
+  - indicamos ao Spring que precisamos de uma instância da classe HelloWorldService
+  
+
+- Essa indicação pode ser feita de 2 formas:
+- 1º criar um construtor (método público) que recebe por parametro o HelloWorldService e no momento de execução o Spring
+injeta o HelloWorldService
+  
+  ````
+    import com.santos_caroline.first_spring_app.service.HelloWorldService;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    @RestController
+    @RequestMapping("/hello-world")
+
+    public class HelloWordController {
+
+    private HelloWorldService helloWorldService;
+
+    public HelloWordController(HelloWorldService helloWorldService) {
+        this.helloWorldService = helloWorldService;
+    }
+
+    @GetMapping 
+    public String helloWorld() {  
+       return helloWorldService.helloWorld("Carolis");
+    }
+
+    }
+  ````
+- não foi criada uma instância para service (new HelloWorldService) e sim ela foi passada por parametro no 
+construtor. Quem passou a instância e fez a injeção de dependencia foi o Spring
+
+- 2º forma mais simples, ao inves de colocar um construtor, vamos colocar uma dependencia que queremos 
+````private HelloWorldService helloWorldService;```` e o @Autowired -- indica que a dependencia tem que ser injetada 
+(Autowired == automaticamente injetada na minha classe)  
+
+````
+    import com.santos_caroline.first_spring_app.service.HelloWorldService;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    @RestController
+    @RequestMapping("/hello-world")
+
+        public class HelloWordController {
+            @Autowired
+            private HelloWorldService helloWorldService;
+
+
+        @GetMapping 
+        public String helloWorld() {  
+            return helloWorldService.helloWorld("Carolis");
+        }
+
+    }
+````
+
+### Classe de configuração
+
+- Criar package configuration
+- Criar classe de configuração HelloConfiguration
+  - utilizada no Spring para configurar beans e instâncias de classe no contexto de uma aplicação Spring
+    - Usar @ConfigurationProperties para vincular propriedades externas a classes imutáveis, facilitando a configuração
+    - Lets you directly map configuration values to fields in a Java object.
+    - Works with nested properties and complex data structures.
+    - Provides type safety with strong validation of properties when the application starts.
+    - Application configurations are decoupled from the business logic, promoting cleaner code.
+    - Unlike reading configuration values directly from Environment or @Value , @ConfigurationProperties ensures that 
+    properties are bound to types correctly.
+    - It allows for grouping related configurations together under a specific prefix, making the properties easier to 
+    manage and understand.
+    - How @ConfigurationProperties Works?  At its core, @ConfigurationProperties maps property values defined in the 
+    configuration file (like application.yml or application.properties) to fields in a Java class. The key aspect is 
+    that you specify a prefix for properties to be bound.
+    
+  - Dentro da classe de configuração normalmente definimos métodos públicos que retornam o tipo da classe que queremos 
+  configurar 
+  - @Bean é usado dentro das classes @Configuration pra indicar rpo spring que ele deve gerenciar o retorno do método 
+  como um bean no contexto da aplicação
+    - basicamente, beans é criar instâncias de classe que não podem ser gerenciadas pelo spring (classe externas, de 
+    bibliotecas de terceiros)
+    - indicar pro spring instâncias de classes pra que le consiga fazer o gerenciamento quando ele não consegue fazer 
+    automatico
+    - por padrão as instâncias geradas pelo @Bean são do escopo singleton
+    - O **Escopo Singleton** garante que uma classe tenha apenas **uma única instância durante toda a vida útil de uma 
+    aplicação** e fornece um ponto de acesso global a essa instância. É ideal para gerenciar recursos compartilhados, 
+    como conexões de banco de dados ou arquivos de configuração, evitando a criação desnecessária de múltiplos objetos 
+    e economizando memória, mas deve ser usado com cautela, pois pode criar acoplamento global e dificultar testes 
+    unitários. 
+  
+  ### Configurações especificas do controller
+- para receber parâmetros pela URL, configuração do body e o mapeamento de alguns métodos
+- Vamos criar um método do tipo @PostMapping no controller
+  - para quando for enviado uma requisição de POST no endpoint /hello-world
+-criar método público String helloWordPost()
+    - normalmente num endpoint de POST recebemos os valores por body da requisição em JSON
+    - então precisamos receber esses valores que o cliente mandou na requisição (@RequestBody String body) -- parâmetro
+      String body)
+    - indica pro spring que esse parâmmetro é pra ser injetado -- Sprinf injeta dentro do ``@RequestBody`` o que ele 
+    receber no body
+    - não é preciso ser tipo primitivo (ex. String etc) po ser classe também
+-Criei a classe User e defini atributos privados de nome e email (os getter,setter e construtores foram pelo lombok)
+    - agora no controller é possivel receber esses atributos no body:
+
+````
+    @PostMapping
+    public String helloWordPost(@RequestBody User body){
+        return "Hello World" + body.getName();
+    }
+}
+````
+-ela fez o teste usando o insomine -- pesquisar melhor !!
+
+- caso eu queira pegar um id pela URL
+  - para isso colocamos as chaves e o nome da variavel no parâmetro
+
+- indico ao spring nos parametros do método, declarando o id e dizer pro spring que ele tem que injetar esse id no 
+parametro do método)
+
+````
+    @PostMapping("/{id}")
+    public String helloWordPost(@PathVariable String id @RequestBody User body){
+        return "Hello World" + body.getName() + id;
+    }
+}
+````
